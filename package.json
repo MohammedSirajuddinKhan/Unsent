@@ -1,0 +1,43 @@
+{
+  "name": "unsent",
+  "version": "1.0.0",
+  "description": "Unsent | Node.js • Express • MongoDB • EJS • Passport Authentication",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start":"nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MohammedSirajuddinKhan/Unsent.git"
+  },
+  "keywords": [
+    "notes",
+    "unsent",
+    "authentication",
+    "ejs",
+    "nodejs",
+    "express",
+    "mongodb",
+    "mongoose"
+  ],
+  "author": "Mohammed Sirajuddin Khan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MohammedSirajuddinKhan/Unsent/issues"
+  },
+  "homepage": "https://github.com/MohammedSirajuddinKhan/Unsent#readme",
+  "dependencies": {
+    "connect-mongo": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "ejs": "^5.0.2",
+    "express": "^5.2.1",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.19.0",
+    "method-override": "^3.0.0",
+    "mongoose": "^9.6.2",
+    "nodemon": "^3.1.14",
+    "passport": "^0.7.0",
+    "passport-google-oauth2": "^0.2.0"
+  }
+}
