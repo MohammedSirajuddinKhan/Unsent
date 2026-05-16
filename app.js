@@ -2,21 +2,152 @@ require("dotenv").config();
 
 const express = require("express");
 const expressLayouts = require("express-ejs-layouts");
+const session = require("express-session");
+const methodOverride = require("method-override");
+const passport = require("passport");
+const connectMongo = require("connect-mongo");
+const mongoose = require("mongoose");
 
-const app = express();
-const port = 3000 || process.env.PORT;
+const configurePassport = require("./server/config/passport");
+const routes = require("./server/routes/index.js");
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+const port = process.env.PORT || 3000;
+const mongoUri =
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URI ||
+  "mongodb://127.0.0.1:27017/unsent";
 
-app.use(express.static("public"));
-app.use(expressLayouts);
+let databasePromise;
 
-app.set("layout", "layouts/main");
-app.set("view engine", "ejs");
+async function connectDatabase() {
+  if (!databasePromise) {
+    databasePromise = mongoose.connect(mongoUri);
+  }
 
-app.use("/",require("./server/routes/index.js"))
+  return databasePromise;
+}
 
-app.listen(port, () => {
-  console.log(`Listening at http://localhost:${port}`);
-});
+function createSessionStore(storeOptions) {
+  const createStore =
+    connectMongo.create ||
+    connectMongo.default?.create ||
+    connectMongo.MongoStore?.create;
+
+  if (typeof createStore === "function") {
+    return createStore(storeOptions);
+  }
+
+  const StoreClass = connectMongo.MongoStore || connectMongo.default;
+
+  if (typeof StoreClass === "function") {
+    return new StoreClass(storeOptions);
+  }
+
+  throw new Error("Unable to initialize connect-mongo session store.");
+}
+
+async function createApp() {
+  await connectDatabase();
+
+  const app = express();
+
+  app.set("trust proxy", 1);
+
+  const storeOptions = {
+    client: mongoose.connection.getClient(),
+    collectionName: "sessions",
+    touchAfter: 60 * 60 * 24,
+  };
+
+  const sessionStore = createSessionStore(storeOptions);
+
+  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json());
+  app.use(methodOverride("_method"));
+  app.use(express.static("public"));
+  app.use(expressLayouts);
+
+  app.set("layout", "layouts/main");
+  app.set("view engine", "ejs");
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "notes-app-session-secret",
+      resave: false,
+      saveUninitialized: false,
+      store: sessionStore,
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    }),
+  );
+
+  app.use((req, res, next) => {
+    const flashMessages = Array.isArray(req.session?.flashMessages)
+      ? req.session.flashMessages
+      : [];
+
+    if (req.session) {
+      req.session.flashMessages = [];
+    }
+
+    res.locals.flashMessages = flashMessages;
+    res.flash = (type, message) => {
+      const flashMessage = { type, message };
+
+      if (!req.session) {
+        res.locals.flashMessages = [...flashMessages, flashMessage];
+        return;
+      }
+
+      if (!Array.isArray(req.session.flashMessages)) {
+        req.session.flashMessages = [];
+      }
+
+      req.session.flashMessages.push(flashMessage);
+    };
+
+    next();
+  });
+
+  configurePassport(passport);
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  app.use((req, res, next) => {
+    res.locals.currentUser = req.user || null;
+    next();
+  });
+
+  app.use("/", routes);
+
+  app.use((req, res) => {
+    res.status(404).send("Page not found");
+  });
+
+  return app;
+}
+
+async function startServer() {
+  const app = await createApp();
+
+  app.listen(port, () => {
+    console.log(`Listening at http://localhost:${port}`);
+    console.log(`Database Connected Succesfully`);
+  });
+}
+
+if (require.main === module && !process.env.VERCEL) {
+  startServer().catch((error) => {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  createApp,
+  connectDatabase,
+  startServer,
+};
