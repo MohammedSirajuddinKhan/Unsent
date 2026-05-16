@@ -47,14 +47,23 @@ function createSessionStore(storeOptions) {
 }
 
 async function createApp() {
-  await connectDatabase();
+  // Start connecting to the database in the background so cold starts
+  // don't block on a full DB handshake in serverless environments.
+  connectDatabase().catch((err) => {
+    console.warn(
+      "Background DB connect failed:",
+      err && err.message ? err.message : err,
+    );
+  });
 
   const app = express();
 
   app.set("trust proxy", 1);
 
   const storeOptions = {
-    client: mongoose.connection.getClient(),
+    // Use mongoUrl rather than a connected client so session store
+    // initialization does not require an already-open mongoose connection.
+    mongoUrl: mongoUri,
     collectionName: "sessions",
     touchAfter: 60 * 60 * 24,
   };
@@ -131,6 +140,8 @@ async function createApp() {
 }
 
 async function startServer() {
+  // For local runs we want to wait for the DB so the dev server is ready.
+  await connectDatabase();
   const app = await createApp();
 
   app.listen(port, () => {
