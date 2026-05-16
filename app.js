@@ -10,6 +10,7 @@ const mongoose = require("mongoose");
 
 const configurePassport = require("./server/config/passport");
 const routes = require("./server/routes/index.js");
+const path = require("path");
 
 const port = process.env.PORT || 3000;
 const mongoUri =
@@ -57,6 +58,9 @@ async function createApp() {
   });
 
   const app = express();
+
+  // Ensure views directory is absolute so serverless environments resolve templates
+  app.set("views", path.join(__dirname, "views"));
 
   app.set("trust proxy", 1);
 
