@@ -142,12 +142,31 @@ async function createApp() {
     next();
   });
 
+  function isCurrentUserAdmin(user) {
+    if (!user) {
+      return false;
+    }
+
+    if (user.isAdmin) {
+      return true;
+    }
+
+    const adminEmails = String(process.env.ADMIN_EMAILS || "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    const userEmail = String(user.email || "").toLowerCase();
+
+    return adminEmails.includes(userEmail);
+  }
+
   configurePassport(passport);
   app.use(passport.initialize());
   app.use(passport.session());
 
   app.use((req, res, next) => {
     res.locals.currentUser = req.user || null;
+    res.locals.isAdmin = isCurrentUserAdmin(req.user);
     next();
   });
 

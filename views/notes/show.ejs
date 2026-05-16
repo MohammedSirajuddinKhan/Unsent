@@ -3,7 +3,7 @@
     <div class="card shadow-sm">
       <div class="card-body p-4 p-md-5">
         <div
-          class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4"
+          class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-4"
         >
           <div>
             <h1 class="h3 mb-2"><%= note.title %></h1>
@@ -11,7 +11,7 @@
               Updated <%= new Date(note.updatedAt).toLocaleString() %>
             </p>
           </div>
-          <div class="d-flex flex-wrap gap-2">
+          <div class="d-flex flex-wrap align-items-center gap-2">
             <a href="/" class="btn btn-outline-secondary">Back</a>
             <a
               href="/notes/<%= note._id %>/edit"
@@ -30,8 +30,23 @@
           </div>
         </div>
 
-        <div style="white-space: pre-wrap; line-height: 1.7">
-          <%= note.body %>
+        <% if (note.imagePreview) { %>
+          <div class="mb-4 text-center">
+            <% if (note.image?.contentType && note.image.contentType.startsWith('image/')) { %>
+              <img
+                src="<%= note.imagePreview %>"
+                alt="<%= note.image?.alt || note.title %>"
+                class="img-fluid rounded-4 shadow-sm border"
+                style="max-height: 420px; object-fit: cover;"
+              />
+            <% } else { %>
+              <a href="<%= note.imagePreview %>" download="<%= note.image?.filename || 'attachment' %>" class="btn btn-outline-primary">Download attachment: <%= note.image?.filename || 'file' %></a>
+            <% } %>
+          </div>
+        <% } %>
+
+        <div class="note-body" style="line-height:1.7">
+          <%- note.body %>
         </div>
       </div>
     </div>

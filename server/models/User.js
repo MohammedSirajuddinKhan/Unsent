@@ -18,6 +18,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    isAdmin: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isBanned: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     photo: {
       type: String,
       default: "",

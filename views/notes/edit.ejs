@@ -11,7 +11,7 @@
           <div class="alert alert-danger"><%= error %></div>
         <% } %>
 
-        <form method="POST" action="/notes/<%= note._id %>?_method=PUT">
+        <form method="POST" action="/notes/<%= note._id %>?_method=PUT" enctype="multipart/form-data">
           <div class="mb-3">
             <label for="title" class="form-label">Title</label>
             <input type="text" class="form-control" id="title" name="title" value="<%= note.title %>" required />
@@ -19,7 +19,46 @@
 
           <div class="mb-3">
             <label for="body" class="form-label">Content</label>
-            <textarea class="form-control" id="body" name="body" rows="10" required><%= note.body %></textarea>
+
+            <div id="editor" class="form-control rich-editor" contenteditable="true" aria-label="Note content">
+              <%- note.body %>
+            </div>
+
+            <textarea id="body" name="body" class="d-none"><%- note.body %></textarea>
+
+            <div class="form-text">You can paste images directly into the editor or use the "Insert image" button.</div>
+            <div class="mt-2">
+              <button type="button" id="insertImageBtn" class="btn btn-sm btn-outline-secondary">Insert image</button>
+              <input type="file" id="editorImageInput" accept="image/*" style="display:none" />
+            </div>
+          </div>
+
+          <% if (note.imagePreview) { %>
+            <div class="mb-3">
+              <label class="form-label">Current Attachment</label>
+              <div class="border rounded-3 p-2 bg-white">
+                <% if (note.image?.contentType && note.image.contentType.startsWith('image/')) { %>
+                  <img src="<%= note.imagePreview %>" alt="<%= note.image?.alt || note.title %>" class="img-fluid rounded-3" />
+                <% } else { %>
+                  <a href="<%= note.imagePreview %>" download="<%= note.image?.filename || 'attachment' %>" class="d-block"><%= note.image?.filename || 'Download attachment' %></a>
+                <% } %>
+              </div>
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="removeImage" name="removeImage" />
+                <label class="form-check-label" for="removeImage">Remove current file</label>
+              </div>
+            </div>
+          <% } %>
+
+          <div class="mb-3">
+            <label for="image" class="form-label">Replace/Add File</label>
+            <input type="file" class="form-control" id="image" name="image" />
+            <div class="form-text">Optional. Choose a new file to replace the current one.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="imageAlt" class="form-label">File Caption</label>
+            <input type="text" class="form-control" id="imageAlt" name="imageAlt" value="<%= note.image?.alt || '' %>" placeholder="File caption or description" />
           </div>
 
           <button type="submit" class="btn btn-primary">Update Note</button>
@@ -28,3 +67,82 @@
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    const editor = document.getElementById('editor');
+    const hidden = document.getElementById('body');
+    const form = document.querySelector('form');
+    const insertImageBtn = document.getElementById('insertImageBtn');
+    const editorInput = document.getElementById('editorImageInput');
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handlePaste(e) {
+      const items = (e.clipboardData && e.clipboardData.items) || [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          const data = await fileToDataUrl(file);
+          insertImageAtCursor(data);
+          return;
+        }
+      }
+    }
+
+    function insertImageAtCursor(dataUrl) {
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.alt = '';
+      img.style.maxWidth = '100%';
+      img.className = 'img-fluid rounded-2 my-2';
+
+      const sel = window.getSelection();
+      if (!sel.rangeCount) {
+        editor.appendChild(img);
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(img);
+      range.setStartAfter(img);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      editor.focus();
+    }
+
+    editor.addEventListener('paste', handlePaste);
+    editor.addEventListener('dragover', (e) => e.preventDefault());
+    editor.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const data = await fileToDataUrl(file);
+        insertImageAtCursor(data);
+      }
+    });
+
+    insertImageBtn.addEventListener('click', () => editorInput.click());
+    editorInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const data = await fileToDataUrl(file);
+      insertImageAtCursor(data);
+      e.target.value = '';
+    });
+
+    form.addEventListener('submit', () => {
+      hidden.value = editor.innerHTML;
+    });
+  })();
+</script>

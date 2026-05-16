@@ -1,0 +1,37 @@
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <h1 class="h4">Notes for <%= user.displayName || user.email %></h1>
+      <a href="/admin" class="btn btn-outline-secondary">Back</a>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <% if (!notes.length) { %>
+          <p class="text-muted">No notes found for this user.</p>
+        <% } else { %>
+          <div class="row g-3">
+            <% notes.forEach(function(n){ %>
+              <div class="col-12">
+                <div class="d-flex align-items-start gap-3 p-3 bg-white rounded-3 border">
+                  <div style="flex:1">
+                    <a href="/notes/<%= n._id %>" class="fw-semibold h6 d-block mb-1"><%= n.title %></a>
+                    <div class="small text-muted"><%= new Date(n.createdAt).toLocaleString() %></div>
+                    <div class="mt-2 text-truncate" style="max-height:3.6rem;overflow:hidden"><%- (n.body || '').replace(/<[^>]+>/g, '') %></div>
+                  </div>
+                  <div class="text-end">
+                    <form method="POST" action="/admin/notes/<%= n._id %>/delete" onsubmit="return confirm('Delete this note?');">
+                      <button class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

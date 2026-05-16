@@ -12,6 +12,12 @@ const noteSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    image: {
+      data: Buffer,
+      contentType: String,
+      filename: String,
+      alt: String,
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

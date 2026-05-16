@@ -1,4 +1,6 @@
 const Note = require("../models/Note");
+const { buildImageSource } = require("../utils/image");
+const { escapeRegex, tokenizeSearch } = require("../utils/text");
 
 exports.homepage = async (req, res, next) => {
   try {
@@ -14,23 +16,29 @@ exports.homepage = async (req, res, next) => {
 
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = 6;
-    const search = (req.query.q || "").trim();
+    const search = tokenizeSearch(req.query.q).join(" ");
 
     const filter = {
       user: req.user._id,
     };
 
-    const projection = {};
     let sort = { updatedAt: -1 };
 
     if (search) {
-      filter.$text = { $search: search };
-      projection.score = { $meta: "textScore" };
-      sort = { score: { $meta: "textScore" }, updatedAt: -1 };
+      const tokens = tokenizeSearch(search);
+
+      filter.$and = tokens.map((token) => {
+        const safeToken = escapeRegex(token);
+        const regex = new RegExp(safeToken, "i");
+
+        return {
+          $or: [{ title: regex }, { body: regex }],
+        };
+      });
     }
 
     const [notes, totalNotes] = await Promise.all([
-      Note.find(filter, projection)
+      Note.find(filter)
         .sort(sort)
         .skip((page - 1) * limit)
         .limit(limit)
@@ -38,12 +46,17 @@ exports.homepage = async (req, res, next) => {
       Note.countDocuments(filter),
     ]);
 
+    const notesWithImages = notes.map((note) => ({
+      ...note,
+      imagePreview: buildImageSource(note.image),
+    }));
+
     const totalPages = Math.max(Math.ceil(totalNotes / limit), 1);
 
     return res.render("index", {
       title: "Unsent | Saved, not sent.",
       description: "Create, search and manage your notes",
-      notes,
+      notes: notesWithImages,
       search,
       pagination: {
         page,
