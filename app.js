@@ -193,13 +193,10 @@ async function createApp() {
     return adminEmails.includes(userEmail);
   }
 
-  // configurePassport(passport);
-  // app.use(passport.initialize());
-  // app.use(passport.session());
+  configurePassport(passport);
+  app.use(passport.initialize());
+  app.use(passport.session());
 
-  app.get("/",(req,res)=>{
-    res.send("working")
-  })
 
   app.use((req, res, next) => {
     res.locals.currentUser = req.user || null;
