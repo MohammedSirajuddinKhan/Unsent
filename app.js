@@ -14,16 +14,49 @@ const cookieSession = require("cookie-session");
 const path = require("path");
 
 const port = process.env.PORT || 3000;
-const mongoUri =
-  process.env.MONGO_URI ||
-  process.env.MONGODB_URI ||
-  "mongodb://127.0.0.1:27017/unsent";
+const mongoUri = process.env.MONGO_URI;
 
 let databasePromise;
 
 async function connectDatabase() {
   if (!databasePromise) {
-    databasePromise = mongoose.connect(mongoUri);
+    // Wrap the mongoose connect call with retry logic and sensible timeouts
+    databasePromise = (async () => {
+      const opts = {
+        // Fail fast when the server is unreachable
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        // Keep pool small for serverless environments
+        maxPoolSize: 10,
+        family: 4,
+      };
+
+      const maxAttempts = 5;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const conn = await mongoose.connect(mongoUri, opts);
+          console.log("MongoDB connected succesfully");
+          return conn;
+        } catch (err) {
+          console.error(
+            `MongoDB connection attempt ${attempt} failed:`,
+            err && err.message ? err.message : err,
+          );
+          // Clear the cached promise so future callers can retry
+          databasePromise = null;
+
+          if (attempt === maxAttempts) {
+            // Exhausted retries — rethrow so callers can decide what to do
+            throw err;
+          }
+
+          // Exponential backoff before retrying
+          const delayMs = 1000 * Math.pow(2, attempt - 1);
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
+    })();
   }
 
   return databasePromise;
@@ -180,13 +213,23 @@ async function createApp() {
 }
 
 async function startServer() {
-  // For local runs we want to wait for the DB so the dev server is ready.
-  await connectDatabase();
+  // For local runs we attempt to connect to the DB but don't block
+  // indefinitely — if the DB is unreachable we'll start the server
+  // so the app can still respond with meaningful errors instead of
+  // hanging during startup.
+  try {
+    await connectDatabase();
+  } catch (err) {
+    console.warn(
+      "Warning: failed to connect to MongoDB during startup; continuing without DB.",
+      err && err.message ? err.message : err,
+    );
+  }
+
   const app = await createApp();
 
   app.listen(port, () => {
     console.log(`Listening at http://localhost:${port}`);
-    console.log(`Database Connected Succesfully`);
   });
 }
 
