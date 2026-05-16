@@ -3,18 +3,54 @@ const GoogleStrategy = require("passport-google-oauth2").Strategy;
 const User = require("../models/User");
 
 module.exports = function configurePassport(passport) {
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
+  // For serverless deployments using cookie sessions, store a small
+  // user object in the session to avoid a DB lookup on every request
+  // during cold starts. Fall back to id-based serialization for
+  // non-serverless environments.
+  const useCookieSession =
+    !!process.env.VERCEL || process.env.USE_COOKIE_SESSION === "1";
 
-  passport.deserializeUser(async (id, done) => {
-    try {
-      const user = await User.findById(id).lean();
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
+  if (useCookieSession) {
+    passport.serializeUser((user, done) => {
+      const small = {
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        photo: user.photo,
+      };
+      done(null, small);
+    });
+
+    passport.deserializeUser((obj, done) => {
+      // If object (from cookie), return it directly. If it's an id
+      // string, fall back to DB lookup for backwards compatibility.
+      if (obj && typeof obj === "object" && obj.id) {
+        return done(null, obj);
+      }
+
+      (async () => {
+        try {
+          const user = await User.findById(obj).lean();
+          done(null, user);
+        } catch (error) {
+          done(error);
+        }
+      })();
+    });
+  } else {
+    passport.serializeUser((user, done) => {
+      done(null, user.id);
+    });
+
+    passport.deserializeUser(async (id, done) => {
+      try {
+        const user = await User.findById(id).lean();
+        done(null, user);
+      } catch (error) {
+        done(error);
+      }
+    });
+  }
 
   passport.use(
     new GoogleStrategy(
