@@ -1,19 +1,22 @@
 const serverless = require("serverless-http");
 const { createApp } = require("../app");
 
-let cachedHandler;
+let app;
+let handler;
 
 module.exports = async (req, res) => {
   try {
-    if (!cachedHandler) {
-      const app = await createApp();
-      cachedHandler = serverless(app);
+    if (!handler) {
+      if (!app) {
+        app = await createApp();
+      }
+      handler = serverless(app);
     }
 
-    return cachedHandler(req, res);
-  } catch (error) {
-    console.error("Serverless startup error:", error);
+    return handler(req, res);
+  } catch (err) {
+    console.error(err);
     res.statusCode = 500;
-    res.end(`Error: ${error.message}`);
+    res.end("Server Error: " + err.message);
   }
 };

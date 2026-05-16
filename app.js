@@ -197,9 +197,9 @@ async function createApp() {
   app.use(passport.initialize());
   app.use(passport.session());
 
-app.get("/",(req,res)=>{
-  res.send("Working fine here")
-})
+// app.get("/",(req,res)=>{
+//   res.send("Working fine here")
+// })
 
   app.use((req, res, next) => {
     res.locals.currentUser = req.user || null;
