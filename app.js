@@ -10,6 +10,7 @@ const mongoose = require("mongoose");
 
 const configurePassport = require("./server/config/passport");
 const routes = require("./server/routes/index.js");
+const cookieSession = require("cookie-session");
 const path = require("path");
 
 const port = process.env.PORT || 3000;
@@ -64,6 +65,10 @@ async function createApp() {
 
   app.set("trust proxy", 1);
 
+  // Prefer cookie-based sessions on Vercel to avoid session-store cold-starts.
+  const useCookieSession =
+    !!process.env.VERCEL || process.env.USE_COOKIE_SESSION === "1";
+
   const storeOptions = {
     // Use mongoUrl rather than a connected client so session store
     // initialization does not require an already-open mongoose connection.
@@ -72,7 +77,31 @@ async function createApp() {
     touchAfter: 60 * 60 * 24,
   };
 
-  const sessionStore = createSessionStore(storeOptions);
+  let sessionMiddleware;
+
+  if (useCookieSession) {
+    sessionMiddleware = cookieSession({
+      name: "session",
+      keys: [process.env.SESSION_SECRET || "notes-app-session-secret"],
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  } else {
+    const sessionStore = createSessionStore(storeOptions);
+
+    sessionMiddleware = session({
+      secret: process.env.SESSION_SECRET || "notes-app-session-secret",
+      resave: false,
+      saveUninitialized: false,
+      store: sessionStore,
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    });
+  }
 
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
@@ -83,19 +112,7 @@ async function createApp() {
   app.set("layout", "layouts/main");
   app.set("view engine", "ejs");
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "notes-app-session-secret",
-      resave: false,
-      saveUninitialized: false,
-      store: sessionStore,
-      cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 7,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      },
-    }),
-  );
+  app.use(sessionMiddleware);
 
   app.use((req, res, next) => {
     const flashMessages = Array.isArray(req.session?.flashMessages)
