@@ -146,8 +146,9 @@ if (require.main === module && !process.env.VERCEL) {
   });
 }
 
-module.exports = {
-  createApp,
-  connectDatabase,
-  startServer,
-};
+// Export the app factory as the module default (callable) to satisfy
+// serverless platforms that expect the module to export a function or server.
+module.exports = createApp;
+module.exports.createApp = createApp;
+module.exports.connectDatabase = connectDatabase;
+module.exports.startServer = startServer;
