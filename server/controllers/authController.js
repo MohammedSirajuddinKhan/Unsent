@@ -8,12 +8,18 @@ exports.logout = (req, res, next) => {
       res.flash("success", "You have been logged out.");
     }
 
-    req.session.save((saveError) => {
-      if (saveError) {
-        return next(saveError);
-      }
+    if (req.session && typeof req.session.save === "function") {
+      req.session.save((saveError) => {
+        if (saveError) {
+          return next(saveError);
+        }
 
-      res.redirect("/");
-    });
+        res.redirect("/");
+      });
+
+      return;
+    }
+
+    res.redirect("/");
   });
 };
