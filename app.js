@@ -193,9 +193,13 @@ async function createApp() {
     return adminEmails.includes(userEmail);
   }
 
-  configurePassport(passport);
-  app.use(passport.initialize());
-  app.use(passport.session());
+  // configurePassport(passport);
+  // app.use(passport.initialize());
+  // app.use(passport.session());
+
+  app.get("/",(req,res)=>{
+    res.send("working")
+  })
 
   app.use((req, res, next) => {
     res.locals.currentUser = req.user || null;
@@ -213,10 +217,6 @@ async function createApp() {
 }
 
 async function startServer() {
-  // For local runs we attempt to connect to the DB but don't block
-  // indefinitely — if the DB is unreachable we'll start the server
-  // so the app can still respond with meaningful errors instead of
-  // hanging during startup.
   try {
     await connectDatabase();
   } catch (err) {
@@ -227,6 +227,10 @@ async function startServer() {
   }
 
   const app = await createApp();
+
+  app.get("/test", (req, res) => {
+    res.send("App working");
+  });
 
   app.listen(port, () => {
     console.log(`Listening at http://localhost:${port}`);
