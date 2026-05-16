@@ -32,7 +32,7 @@ async function connectDatabase() {
         family: 4,
       };
 
-      const maxAttempts = 5;
+      const maxAttempts = 3;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           const conn = await mongoose.connect(mongoUri, opts);
@@ -242,7 +242,8 @@ if (require.main === module && !process.env.VERCEL) {
 
 // Export the app factory as the module default (callable) to satisfy
 // serverless platforms that expect the module to export a function or server.
-module.exports = createApp;
-module.exports.createApp = createApp;
-module.exports.connectDatabase = connectDatabase;
-module.exports.startServer = startServer;
+module.exports = {
+  createApp,
+  connectDatabase,
+  startServer,
+};
